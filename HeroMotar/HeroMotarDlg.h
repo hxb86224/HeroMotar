@@ -37,5 +37,9 @@ protected:
 	afx_msg void OnButtonDo2();
 	afx_msg void OnButtonDo3();
 	afx_msg void OnButtonDo4();
+	afx_msg void OnButtonDo6();
+	afx_msg void OnButtonDo7();
+	afx_msg void OnButtonDo8();
+	afx_msg void OnButtonDo9();
 	DECLARE_MESSAGE_MAP()
 };

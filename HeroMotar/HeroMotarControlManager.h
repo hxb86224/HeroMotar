@@ -21,6 +21,10 @@ public:
     virtual int doSingleMotion3() = 0;
     virtual int emgStop() = 0;
     virtual int doMoveL2() = 0;
+    virtual int doLeftTransverse() = 0;
+    virtual int doRightTransverse() = 0;
+    virtual int doLeftVertical() = 0;
+    virtual int doRightVertical() = 0;
 };
 
 #define g_HeroMotarControlManager (*CHeroMotarControlManager::GetInstance())

@@ -9,6 +9,7 @@ CHeroMotarTcp::CHeroMotarTcp(unsigned short nPort)
     m_bLoop = true;
     m_bWSAStart = false;
     m_nSocket = INVALID_SOCKET;
+    m_DealMsgCallback = nullptr;
     Init();
 }
 
@@ -405,6 +406,11 @@ int CHeroMotarTcp::LoopSend(char *pBuf, uint nSize)
     return 0;
 }
 	
+int CHeroMotarTcp::SetDealMsgCallback(OnDealMsgCallback msgCallback)
+{
+    m_DealMsgCallback = msgCallback;
+    return 0;
+}
 
 
 

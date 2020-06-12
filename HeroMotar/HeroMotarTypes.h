@@ -9,6 +9,7 @@ using namespace LOGGER;
 #define g_Logger (*CLogger::instance())
 #define TCP_PORT 12345
 #define BUF_LEN 1024
+#define PULSE_UNIT (0.0443294)
 using namespace std;
 typedef unsigned char			uchar;
 typedef unsigned int			uint;
@@ -16,29 +17,38 @@ typedef unsigned short			ushort;
 typedef unsigned long			ulong;
 typedef void *					HANDLE;
 
+typedef enum {
+    BACK_UP_DOWN_MOTION_AXIS1 = 0,
+    FRONT_UP_DOWN_MOTION_AXIS1,
+    PULP_OUT_AXIS,
+    LEFT_RIGHT_MOTION_AXIS,
+    BACK_UP_DOWN_MOTION_AXIS2,
+    FRONT_UP_DOWN_MOTION_AXIS2,
+} E_AXIS_NO;
+
 typedef struct S_Single_Motion
 {
-    BOOL	bLogic;
+    int	    nLogic;
     long	nPulse;
     int		nActionst;
     int		nAxis;
     double	dAcc;
     double	dDec;
-    double	dSPara;
+    //double	dSPara;
     double	dSpeed;
     double	dSpeedMin;
     double  dSpeedStop;
 public:
     S_Single_Motion()
     {
-        bLogic = TRUE;
+        nLogic = 1;
         nPulse = 6400;
         nActionst = 0;
-        nAxis = 0;
+        nAxis = LEFT_RIGHT_MOTION_AXIS;
         dAcc = 0.01;
         dDec = 0.01;
-        dSPara = 0.0;
-        dSpeed = 3000.0;
+        //dSPara = 0.0;
+        dSpeed = 500.0;
         dSpeedMin = 100.0;
         dSpeedStop = 200.0;
     }
@@ -53,10 +63,16 @@ typedef struct S_In_Out
     BOOL	bOut1;
     BOOL	bOut2;
     BOOL	bOut3;
+    BOOL	bOut4;
+    BOOL	bOut5;
+    BOOL	bOut6;
+    short   nIn0;
     short   nIn1;
     short   nIn2;
     short   nIn3;
     short   nIn4;
+    short   nIn5;
+    short   nIn6;
     int     nOrg;           //1 :X轴原点信号:ON 0:X轴原点信号：OFF
 public:
     S_In_Out()
@@ -66,10 +82,16 @@ public:
         bOut1 = FALSE;
         bOut2 = FALSE;
         bOut3 = FALSE;
+        bOut4 = FALSE;
+        bOut5 = FALSE;
+        bOut6 = FALSE;
+        nIn0 = 0;
         nIn1 = 0;
         nIn2 = 0;
         nIn3 = 0;
         nIn4 = 0;
+        nIn5 = 0;
+        nIn6 = 0;
         nOrg = 0;
     }
 
@@ -77,41 +99,37 @@ public:
 
 typedef struct S_Move_L
 {
-    double	dXdist;
-    double	dSpeedCurrent;
+    int	    nLogic;
+    //double	dXdist;
+    //double	dSpeedCurrent;
     double	dSpeedstart;
     double	dSpeedrun;
     double	dSpeedstop;
-    double	dUdist;
-    double	dUPos;
-    double	dXpos;
-    double	dYdist;
-    double	dYpos;
-    double	dZdist;
-    int		nAxis;
-    double	dZpos;
+    //double	dUdist;
+    //double	dUPos;
+    //double	dXpos;
+    //double	dYdist;
+    //double	dYpos;
+    //double	dZdist;
+    //int		nAxis;
+    //double	dZpos;
     double	dTAcc;
     double	dTDec;
     int	    nCrd;
+    double  dDis;
+    WORD    nAxis[2];
+    double  dDist[2];
 public:
     S_Move_L()
     {
-        dXdist = 0.0;
-        dSpeedCurrent = 0.0;
-        dSpeedstart = 0.0;
-        dSpeedrun = 0.0;
-        dSpeedstop = 0.0;
-        dUdist = 0.0;
-        dUPos = 0.0;
-        dXpos = 0.0;
-        dYdist = 0.0;
-        dYpos = 0.0;
-        dZdist = 0.0;
-        nAxis = 0;
-        dZpos = 0.0;
-        dTAcc = 0.0;
-        dTDec = 0.0;
+        nLogic = 1;
+        dSpeedstart = 500.0;
+        dSpeedrun = 1000.0;
+        dSpeedstop = 200.0;
+        dTAcc = 0.1;
+        dTDec = 0.1;
         nCrd = 0;
+        dDis = 0.0;
     }
 
 } S_Move_L;
@@ -125,5 +143,17 @@ typedef struct S_Connection_Socket {
         memset(cBuf, 0, sizeof(cBuf));
     }
 } S_Connection_Socket;
+
+
+typedef enum {
+    STATIC_STATE = 0,
+    UP_STATE,
+    DOWN_STATE,
+    LEFT_STATE,
+    RIGHT_STATE,
+} E_ACTION_STATE;
+
+
+
 
 #endif

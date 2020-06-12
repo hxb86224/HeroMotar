@@ -72,6 +72,10 @@ BEGIN_MESSAGE_MAP(CHeroMotarDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON3, OnButtonDo2)
 	ON_BN_CLICKED(IDC_BUTTON4, OnButtonDo3)
 	ON_BN_CLICKED(IDC_BUTTON5, OnButtonDo4)
+	ON_BN_CLICKED(IDC_BUTTON6, OnButtonDo6)
+	ON_BN_CLICKED(IDC_BUTTON7, OnButtonDo7)
+	ON_BN_CLICKED(IDC_BUTTON8, OnButtonDo8)
+	ON_BN_CLICKED(IDC_BUTTON9, OnButtonDo9)
 END_MESSAGE_MAP()
 
 
@@ -109,7 +113,7 @@ BOOL CHeroMotarDlg::OnInitDialog()
 	// TODO: 在此添加额外的初始化代码
 	if (g_HeroMotarControlManager.Init(false) == 0)
 	{
-		SetTimer(IDC_TIMER, 100, NULL);
+		SetTimer(IDC_TIMER, 50, NULL);
 	}
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
@@ -153,6 +157,27 @@ void CHeroMotarDlg::OnButtonDo4()
 {
 	g_HeroMotarControlManager.doMoveL2();
 }
+
+void CHeroMotarDlg::OnButtonDo6()
+{
+	g_HeroMotarControlManager.doLeftTransverse();
+}
+
+void CHeroMotarDlg::OnButtonDo7()
+{
+	g_HeroMotarControlManager.doRightTransverse();
+}
+
+void CHeroMotarDlg::OnButtonDo8()
+{
+	g_HeroMotarControlManager.doLeftVertical();
+}
+
+void CHeroMotarDlg::OnButtonDo9()
+{
+	g_HeroMotarControlManager.doRightVertical();
+}
+
 void CHeroMotarDlg::OnDestroy()
 {
 	// TODO: Add your message handler code here

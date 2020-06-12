@@ -5,7 +5,7 @@
 #include "HeroMotarTypes.h"
 #include <thread>
 
-//typedef vector<S_Connection_Socket*> Connection_Socket_List;
+typedef int (*OnDealMsgCallback)(char* pData, unsigned int nLen);
 
 class CHeroMotarTcp
 {
@@ -20,6 +20,7 @@ public:
     void checkConn(const fd_set& fdRead, const fd_set& fdWrite, const fd_set& fdExcept);
     bool tryRead(S_Connection_Socket* pConn);
     bool tryWrite(S_Connection_Socket* pConn);
+    int SetDealMsgCallback(OnDealMsgCallback msgCallback);
     //bool shutConn(SOCKET sSocket, const char* cbuff, int nLen);
 private:
     
@@ -34,6 +35,7 @@ private:
     bool m_bWSAStart;
     SOCKET m_nSocket;
     vector<S_Connection_Socket*> m_vConnection_Socket;
+    OnDealMsgCallback  m_DealMsgCallback;
 };
 
 #endif
