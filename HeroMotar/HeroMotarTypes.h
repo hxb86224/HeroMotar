@@ -10,6 +10,10 @@ using namespace LOGGER;
 #define TCP_PORT 12345
 #define BUF_LEN 1024
 #define PULSE_UNIT (0.0443294)
+#define HORIZONTAL_TRANSVERSE_300 120
+#define HORIZONTAL_TRANSVERSE_600 400
+#define VERTICAL_TRANSVERSE 120
+
 using namespace std;
 typedef unsigned char			uchar;
 typedef unsigned int			uint;
@@ -25,6 +29,15 @@ typedef enum {
     BACK_UP_DOWN_MOTION_AXIS2,
     FRONT_UP_DOWN_MOTION_AXIS2,
 } E_AXIS_NO;
+
+typedef enum {
+    LEFT_TRANSVERSE = 1,
+    RIGHT_TRANSVERSE,
+    LEFT_VERTICAL,
+    RIGHT_VERTICAL,
+    LEFT_MOVE,
+    RIGHT_MOVE,
+} E_ACTION_TYPE;
 
 typedef struct S_Single_Motion
 {
@@ -48,9 +61,9 @@ public:
         dAcc = 0.01;
         dDec = 0.01;
         //dSPara = 0.0;
-        dSpeed = 500.0;
-        dSpeedMin = 100.0;
-        dSpeedStop = 200.0;
+        dSpeed = 1500.0;
+        dSpeedMin = 500.0;
+        dSpeedStop = 500.0;
     }
 
 } S_Single_Motion;
@@ -123,9 +136,9 @@ public:
     S_Move_L()
     {
         nLogic = 1;
-        dSpeedstart = 500.0;
-        dSpeedrun = 1000.0;
-        dSpeedstop = 200.0;
+        dSpeedstart = 2000.0;
+        dSpeedrun = 4000.0;
+        dSpeedstop = 2000.0;
         dTAcc = 0.1;
         dTDec = 0.1;
         nCrd = 0;
@@ -144,13 +157,25 @@ typedef struct S_Connection_Socket {
     }
 } S_Connection_Socket;
 
+typedef struct S_Msg_Info {
+    SOCKET hSocket;
+    char cBuf[BUF_LEN];
+    int nBytes;
+    S_Msg_Info(SOCKET socket) :hSocket(socket), nBytes(0)//结构体构造函数，hSocket的初始值为socket，nBytes的初始值为0；
+    {
+        memset(cBuf, 0, sizeof(cBuf));
+    }
+} S_Msg_Info;
+
 
 typedef enum {
     STATIC_STATE = 0,
-    UP_STATE,
-    DOWN_STATE,
+    LEFT_UP_STATE,
+    LEFT_DOWN_STATE,
     LEFT_STATE,
     RIGHT_STATE,
+    RIGHT_UP_STATE,
+    RIGHT_DOWN_STATE,
 } E_ACTION_STATE;
 
 

@@ -223,12 +223,6 @@ HCURSOR CHeroMotarDlg::OnQueryDragIcon()
 
 void CHeroMotarDlg::OnTimer(UINT nIDEvent)
 {
-	int i = 0;
-	WORD nRet = g_HeroMotarControlManager.getConnectState();
-	if (nRet != 0)
-	{
-		return;
-	}
 	g_HeroMotarControlManager.getState();
 	CDialog::OnTimer(nIDEvent);
 }

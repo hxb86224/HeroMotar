@@ -3,6 +3,7 @@
 #include "HeroMotarControlManager.h"
 #include "HeroMotarTcp.h"
 #include <mutex>
+#include <regex>
 class CHeroMotarControl : public CHeroMotarControlManager
 {
 public:
@@ -14,7 +15,6 @@ protected:
 
 public:
     virtual int Init(bool enable);
-    virtual WORD getConnectState();
     virtual int getState();
     virtual int doSingleMotion();
     virtual int doSingleMotion2();
@@ -24,25 +24,32 @@ public:
     virtual int doRightTransverse();
     virtual int doLeftVertical();
     virtual int doRightVertical();
-    void positionClear();
+    virtual int OnDealMsgInfo(char* pData, unsigned int nLen, unsigned int nSocket);
     int decStop();
     virtual int emgStop();
-    void checkLogic();
-    void radioAxis(int nType);
     int writeOutbit(S_In_Out sIO);
     int doMoveL(S_Move_L sMove_L);
     int multicoorStop();    //停止坐标系内所有轴的运动
     int eStop();            //紧急停止所有轴
-    int resetPosition();    //设置当前指令位置计数器值
     int doSingleMotion(S_Single_Motion sSingleMotion);
     int doMoveLDown(double dDis = 4000.0, bool bFront = true);
     int doMoveLUp(double dDis = 4000.0, bool bFront = true);
-    void threadProcLeftVertical(int nAxis);
-    void threadProcRightVertical(int nAxis);
-    void threadProcRightTransverse(int nAxis);
-    void threadProcLeftTransverse(int nAxis);
+    void threadProcLeftVertical(UINT nValue);
+    void threadProcRightVertical(UINT nValue);
+    void threadProcRightTransverse(UINT nValue);
+    void threadProcLeftTransverse(UINT nValue);
+    void threadProcPulpOut();
+    void threadProcMotar(UINT nParam);
     int emgStop2();
     int doSingleMotion(UINT nLen, int nLogic);
+    vector<string> Split(const char* in, const char* delim);
+    int doMotar(int nCommand, int nCommandValue);
+    void threadProcLeftMove(UINT nValue);
+    void threadProcRightMove(UINT nValue);
+    void InitLeftRightData();
+    int doPulpOut(WORD nLogic);
+    bool HorizontalTransverse();
+
 
 private:
     WORD m_nConnectNo;
@@ -52,6 +59,9 @@ private:
     S_Move_L m_sMove_L;
     CHeroMotarTcp* m_pHeroMotarTcp;
     mutex g_Mutex;
+    bool m_bInitSuccess;
+    bool m_bPulpOut;
+    bool m_bEstop;
 };
 
 #endif // CHEROMOTARCONTROL_H

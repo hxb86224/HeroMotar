@@ -5,7 +5,7 @@
 #include "HeroMotarTypes.h"
 #include <thread>
 
-typedef int (*OnDealMsgCallback)(char* pData, unsigned int nLen);
+typedef int (*OnDealMsgCallback)(char* pData, unsigned int nLen, unsigned int nSocket);
 
 class CHeroMotarTcp
 {
@@ -20,6 +20,7 @@ public:
     void checkConn(const fd_set& fdRead, const fd_set& fdWrite, const fd_set& fdExcept);
     bool tryRead(S_Connection_Socket* pConn);
     bool tryWrite(S_Connection_Socket* pConn);
+    bool tryWrite(char* pData, unsigned int nLen, unsigned int nSocket);
     int SetDealMsgCallback(OnDealMsgCallback msgCallback);
     //bool shutConn(SOCKET sSocket, const char* cbuff, int nLen);
 private:

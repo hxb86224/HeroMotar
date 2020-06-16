@@ -233,6 +233,10 @@ bool CHeroMotarTcp::tryRead(S_Connection_Socket * pConn)
     int nRet = recv(pConn->hSocket, pConn->cBuf, BUF_LEN, 0);
     if (nRet > 0)
     {
+        if (m_DealMsgCallback)
+        {
+            m_DealMsgCallback(pConn->cBuf, strlen(pConn->cBuf), pConn->hSocket);
+        }
         memset(pConn->cBuf, 0, sizeof(pConn->cBuf));
         return true;
     }
@@ -258,6 +262,39 @@ bool CHeroMotarTcp::tryRead(S_Connection_Socket * pConn)
     }
 }
 
+bool CHeroMotarTcp::tryWrite(char* pData, unsigned int nLen, unsigned int nSocket)
+{
+    int nSent = send(nSocket, pData, nLen, 0);
+    if (nSent > 0)
+    {
+        //pConn->nBytes -= nSent;
+        ////Buffer中还有数据尚未发送出去
+        //if (pConn->nBytes > 0)
+        //{
+        //    //把尚未发送的数据从Buffer的尾部移动到Buffer头部
+        //    memmove(pConn->cBuf, pConn->cBuf + nSent, pConn->nBytes);
+        //}
+        return true;
+    }
+    //对方关闭了连接，调用了被动安全关闭连接PassiveShutdown函数
+    else if (nSent == 0)
+    {
+        printf("CRobotTcpProtocol::tryWrite 对方关闭连接\n");
+        closesocket(nSocket);
+        nSocket = INVALID_SOCKET;
+        return false;
+    }
+    //发生了错误，为了程序的健壮性，检查WSAEWOULDBLOCK错误
+    else
+    {
+        int lastErr = WSAGetLastError();
+        if (lastErr == WSAEWOULDBLOCK)
+        {
+            return true;
+        }
+        return false;
+    }
+}
 
 bool CHeroMotarTcp::tryWrite(S_Connection_Socket* pConn)
 {
