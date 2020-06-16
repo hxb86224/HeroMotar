@@ -24,60 +24,6 @@ CHeroMotarTcp::~CHeroMotarTcp()
 
 void CHeroMotarTcp::ThreadProc()
 {
-    //fd_set fdSocket;
-    //FD_ZERO(&fdSocket);
-    //FD_SET(m_nSocket, &fdSocket);
-    //while (m_bLoop)
-    //{
-    //    //BOOL bWorked = FALSE;
-    //    fd_set fdRead = fdSocket;
-    //    timeval timeout = { 0, 0 };
-    //    if (select(0, &fdRead, NULL, NULL, &timeout) > 0)
-    //    {
-
-    //        for (int i = 0; i < fdSocket.fd_count; i++)
-    //        {
-    //            if (FD_ISSET(fdSocket.fd_array[i], &fdRead))    //检查fdSocket.fd_arry[i]是不是faRead的成员函数，成功返回TRUE
-    //            {
-    //                if (fdSocket.fd_array[i] == m_nSocket)    //监听套接字接收到新连接
-    //                {
-    //                    if (fdSocket.fd_count < FD_SETSIZE) //判断是否小于select的最大数量
-    //                    {
-    //                        sockaddr_in addrRemote;
-    //                        int iLen = sizeof(addrRemote);
-    //                        SOCKET sNew = accept(m_nSocket, (SOCKADDR*)&addrRemote, &iLen); //创建套接字与客户端通信
-    //                        FD_SET(sNew, &fdSocket);    //新接收的连接添加到套接字集合
-    //                        printf("接收到连接（%s）\n", ::inet_ntoa(addrRemote.sin_addr));
-
-    //                    }
-    //                    else
-    //                    {
-    //                        //超过select的最大数量
-    //                        printf("Too much connections \n");
-    //                        continue;
-    //                    }
-    //                }
-    //                else
-    //                {
-    //                    char cText[1024] = { 0 };
-    //                    int iRecv = recv(fdSocket.fd_array[i], cText, strlen(cText), 0);
-    //                    if (iRecv > 0)
-    //                    {
-    //                        cText[iRecv] = '\0';
-    //                        printf("接收的数据：%s\n", cText);
-    //                    }
-    //                    else if (iRecv < 0)
-    //                    {
-    //                        closesocket(fdSocket.fd_array[i]);    //连接关闭、重启、关闭
-    //                        FD_CLR(fdSocket.fd_array[i], &fdSocket);    //从套接字集合fdSocket中删除fdSocket.fd_array[i]
-    //                    }
-    //                }
-    //            }
-    //        }
-    //    }
-    //}
-    //closesocket(m_nSocket);
-    //m_nSocket = INVALID_SOCKET;
     fd_set fdRead, fdWrite, fdExcept;
     while (m_bLoop)
     {
@@ -407,9 +353,9 @@ int CHeroMotarTcp::Disconnect()
 	return 0;
 }
 
-int CHeroMotarTcp::LoopSend(char *pBuf, uint nSize)
+int CHeroMotarTcp::LoopSend(char *pBuf, uint nSize, uint nSocket)
 {
-    if(m_nSock <= 0)
+    if(nSocket <= 0)
     {
         printf("CRobotTcpProtocol::LoopSend tcp is disconnected AAAAAAAAAA\n");
         return -1;
@@ -420,12 +366,11 @@ int CHeroMotarTcp::LoopSend(char *pBuf, uint nSize)
     while(nRemian > 0)
     {
         printf("CRobotTcpProtocol::LoopSend remian = %d m_nSock = %d\n", nRemian, m_nSock);
-        nRet = send(m_nSock, pBuf + nSendlen, nRemian, 0);
-        printf("CRobotTcpProtocol::LoopSend ret = %d test002\n", nRet);
+        nRet = send(nSocket, pBuf + nSendlen, nRemian, 0);
         if(nRet <= 0)
         {
             ++ m_nTry;
-            return nRet;
+            continue;
         }
         else
         {
@@ -439,7 +384,6 @@ int CHeroMotarTcp::LoopSend(char *pBuf, uint nSize)
             break;
         }
     }
-    printf("CRobotTcpProtocol::LoopSend test003\n");
     return 0;
 }
 	

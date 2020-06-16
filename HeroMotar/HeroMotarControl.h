@@ -2,7 +2,7 @@
 #define CHEROMOTARCONTROL_H
 #include "HeroMotarControlManager.h"
 #include "HeroMotarTcp.h"
-#include <mutex>
+//#include <mutex>
 #include <regex>
 class CHeroMotarControl : public CHeroMotarControlManager
 {
@@ -25,30 +25,28 @@ public:
     virtual int doLeftVertical();
     virtual int doRightVertical();
     virtual int OnDealMsgInfo(char* pData, unsigned int nLen, unsigned int nSocket);
-    int decStop();
     virtual int emgStop();
-    int writeOutbit(S_In_Out sIO);
     int doMoveL(S_Move_L sMove_L);
     int multicoorStop();    //停止坐标系内所有轴的运动
     int eStop();            //紧急停止所有轴
     int doSingleMotion(S_Single_Motion sSingleMotion);
     int doMoveLDown(double dDis = 4000.0, bool bFront = true);
     int doMoveLUp(double dDis = 4000.0, bool bFront = true);
-    void threadProcLeftVertical(UINT nValue);
-    void threadProcRightVertical(UINT nValue);
-    void threadProcRightTransverse(UINT nValue);
-    void threadProcLeftTransverse(UINT nValue);
-    void threadProcPulpOut();
+    int threadProcLeftVertical(UINT nValue);
+    int threadProcRightVertical(UINT nValue);
+    int threadProcRightTransverse(UINT nValue);
+    int threadProcLeftTransverse(UINT nValue);
+    int threadProcPulpOut();
     void threadProcMotar(UINT nParam);
     int emgStop2();
     int doSingleMotion(UINT nLen, int nLogic);
     vector<string> Split(const char* in, const char* delim);
     int doMotar(int nCommand, int nCommandValue);
-    void threadProcLeftMove(UINT nValue);
-    void threadProcRightMove(UINT nValue);
-    void InitLeftRightData();
+    int threadProcLeftMove(UINT nValue);
+    int threadProcRightMove(UINT nValue);
+    bool InitLeftRightData();
     int doPulpOut(WORD nLogic);
-    bool HorizontalTransverse();
+    bool HorizontalTransverse(UINT nLen);
 
 
 private:
@@ -58,10 +56,11 @@ private:
     S_In_Out m_sIn_Out;
     S_Move_L m_sMove_L;
     CHeroMotarTcp* m_pHeroMotarTcp;
-    mutex g_Mutex;
+    //mutex g_Mutex;
     bool m_bInitSuccess;
     bool m_bPulpOut;
     bool m_bEstop;
+    CRITICAL_SECTION m_criticalSection;
 };
 
 #endif // CHEROMOTARCONTROL_H

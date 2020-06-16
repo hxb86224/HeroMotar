@@ -13,6 +13,9 @@ using namespace LOGGER;
 #define HORIZONTAL_TRANSVERSE_300 120
 #define HORIZONTAL_TRANSVERSE_600 400
 #define VERTICAL_TRANSVERSE 120
+#define EVENT_TIME_OUT 200
+#define VERTICAL_EVENT_TIME_OUT 600
+#define ONCE_MOVE_LEN 300
 
 using namespace std;
 typedef unsigned char			uchar;

@@ -13,7 +13,7 @@ public:
     CHeroMotarTcp(ushort nPort);
     ~CHeroMotarTcp();
     void ThreadProc();
-    int LoopSend(char *pBuf, uint nSize);
+    int LoopSend(char *pBuf, uint nSize, uint nSocket);
     int createListen();
     void resetFDset(fd_set& fdRead, fd_set& fdWrite, fd_set& fdExcept);
     int checkAccept(const fd_set& fdRead, const fd_set& fdExcept);
