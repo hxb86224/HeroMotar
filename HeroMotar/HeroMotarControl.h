@@ -45,6 +45,7 @@ public:
     int threadProcLeftMove(UINT nValue);
     int threadProcRightMove(UINT nValue);
     bool InitLeftRightData();
+    bool InitEndLeftRightData();
     int doPulpOut(WORD nLogic);
     bool HorizontalTransverse(UINT nLen);
 
@@ -60,6 +61,7 @@ private:
     bool m_bInitSuccess;
     bool m_bPulpOut;
     bool m_bEstop;
+    bool m_bLeftRightMove;
     CRITICAL_SECTION m_criticalSection;
 };
 

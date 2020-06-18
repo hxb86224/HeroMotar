@@ -16,6 +16,7 @@ CHeroMotarControl::CHeroMotarControl()
 	m_bInitSuccess = false;
 	m_bPulpOut = false;
 	m_bEstop = false;
+	m_bLeftRightMove = false;
 	InitializeCriticalSection(&m_criticalSection);
 }
 
@@ -50,6 +51,7 @@ int CHeroMotarControl::Init(bool enable)
         return -1;
     }
 	m_bInitSuccess = true;
+	smc_set_counter_inmode(m_nConnectNo, PULP_OUT_AXIS, 0);
     g_Logger.TraceInfo("CHeroMotarControl::Init Á¬½Ó³É¹¦£¡");
 	m_pHeroMotarTcp = new CHeroMotarTcp(12345);
 	m_pHeroMotarTcp->createListen();
@@ -72,8 +74,22 @@ int CHeroMotarControl::OnDealMsgInfo(char* pData, unsigned int nLen, unsigned in
 	S_Msg_Info* pMsg_Info = new S_Msg_Info(nSocket);
 	memcpy(pMsg_Info->cBuf, pData, nLen);
 	pMsg_Info->nBytes = nLen;
-	thread t1(&CHeroMotarControl::threadProcMotar, this, (UINT)pMsg_Info);
-	t1.detach();
+
+	auto s_result = Split(pMsg_Info->cBuf, "[\\s,#]+");
+	int nSize = s_result.size();
+	if (nSize == 2)
+	{
+		string s_MsgType = s_result[1];
+		if (s_MsgType == "MOTARESTOP")
+		{
+			emgStop();
+		}
+	}
+	else if (nSize == 3)
+	{
+		thread t1(&CHeroMotarControl::threadProcMotar, this, (UINT)pMsg_Info);
+		t1.detach();
+	}
 	return nRet;
 }
 
@@ -161,8 +177,7 @@ int CHeroMotarControl::getState()
 	//m_sIn_Out.nIn0 = !smc_read_inbit(m_nConnectNo, 5);
 	m_sIn_Out.nIn1 = !smc_read_inbit(m_nConnectNo, 6);
 	m_sIn_Out.nIn2 = !smc_read_inbit(m_nConnectNo, 7);
-	m_sIn_Out.nIn3 = !smc_read_inbit(m_nConnectNo, 8);
-	m_sIn_Out.nIn4 = !smc_read_inbit(m_nConnectNo, 9);
+
 	m_sIn_Out.nIn5 = !smc_read_inbit(m_nConnectNo, 10);
 	m_sIn_Out.nIn6 = !smc_read_inbit(m_nConnectNo, 11);
 	if (m_sIn_Out.nIn6 && (m_nActionState == LEFT_UP_STATE))
@@ -173,6 +188,9 @@ int CHeroMotarControl::getState()
 	{
 		multicoorStop();
 	}
+#if(BLOCK_LEN == 600)
+	m_sIn_Out.nIn3 = !smc_read_inbit(m_nConnectNo, 8);
+	m_sIn_Out.nIn4 = !smc_read_inbit(m_nConnectNo, 9);
 	if (m_sIn_Out.nIn4 && (m_nActionState == RIGHT_UP_STATE))
 	{
 		multicoorStop();
@@ -181,31 +199,39 @@ int CHeroMotarControl::getState()
 	{
 		multicoorStop();
 	}
+#endif
 
-	if (m_sIn_Out.nIn1 && (m_nActionState == LEFT_STATE))
+	if (m_bLeftRightMove)
 	{
-		g_Logger.TraceInfo("CHeroMotarControl::getState: %d£¡", m_nActionState);
-		if (m_sIn_Out.nIn2) 
+		if (m_sIn_Out.nIn1 && (m_nActionState == LEFT_STATE))
 		{
-			emgStop2();
-			
+			g_Logger.TraceInfo("CHeroMotarControl::getState: %d£¡", m_nActionState);
+			if (m_sIn_Out.nIn2)
+			{
+				g_Logger.TraceInfo("CHeroMotarControl::getState ½ô¼±Í£Ö¹£¡");
+				emgStop2();
+				m_bLeftRightMove = false;
+			}
+			else
+			{
+				g_Logger.TraceInfo("CHeroMotarControl::getState ¼õËÙÍ£Ö¹£¡");
+				doSingleMotion3();
+			}
 		}
-		else
+		else if (m_sIn_Out.nIn2 && (m_nActionState == LEFT_STATE))
 		{
-			doSingleMotion3();
-		}
-	}
-	else if (m_sIn_Out.nIn2 && (m_nActionState == LEFT_STATE))
-	{
-		g_Logger.TraceInfo("CHeroMotarControl::getState: %d£¡", m_nActionState);
-		if (m_sIn_Out.nIn1)
-		{
-			emgStop2();
-
-		}
-		else
-		{
-			doSingleMotion3();
+			g_Logger.TraceInfo("CHeroMotarControl::getState: %d£¡", m_nActionState);
+			if (m_sIn_Out.nIn1)
+			{
+				g_Logger.TraceInfo("CHeroMotarControl::getState ½ô¼±Í£Ö¹£¡");
+				emgStop2();
+				m_bLeftRightMove = false;
+			}
+			else
+			{
+				g_Logger.TraceInfo("CHeroMotarControl::getState ¼õËÙÍ£Ö¹£¡");
+				doSingleMotion3();
+			}
 		}
 	}
 
@@ -275,10 +301,12 @@ int CHeroMotarControl::doSingleMotion(S_Single_Motion sSingleMotion)
 	if (sSingleMotion.nActionst == 0)
 	{
 		long nTemp = sSingleMotion.nPulse * sSingleMotion.nLogic;
+		m_bLeftRightMove = true;
 		nRet = smc_pmove_unit(m_nConnectNo, sSingleMotion.nAxis, sSingleMotion.nPulse * sSingleMotion.nLogic, 0);//Ïà¶Ô¶¨³¤ÔË¶¯
 	}
 	else
 	{
+		m_bLeftRightMove = true;
 		nRet = smc_vmove(m_nConnectNo, sSingleMotion.nAxis, sSingleMotion.nLogic);	//ºãËÙÔË¶¯
 	}
 	return nRet;
@@ -323,8 +351,21 @@ int CHeroMotarControl::emgStop2()
 
 int CHeroMotarControl::doMoveL2()
 {
-	return doMoveLUp(2000, true);
-	//return doMoveLDown(1000, true);
+	//static int nCount = 1;
+	//if (nCount % 2)
+	//{
+	//	doMoveLUp(6000, true);
+	//	nCount++;
+	//	return 0;
+	//}
+	//else
+	//{
+	//	doMoveLUp(80000, true);
+	//	nCount++;
+	//	return 0;
+	//}
+	return doMoveLDown(80000, true);
+	//return doPulpOut(0);
 }
 
 int CHeroMotarControl::doMoveLUp(double dDis, bool bFront)
@@ -361,7 +402,7 @@ int CHeroMotarControl::doMoveLDown(double dDis, bool bFront)
 	sMove_L.dTDec = 0.1;
 	sMove_L.nLogic = -1;
 	sMove_L.dDis = dDis;
-	sMove_L.dSpeedrun = 6000.0;
+	sMove_L.dSpeedrun = 10000.0;
 	short nRet = 0;
 	if (bFront)
 	{
@@ -402,6 +443,7 @@ int CHeroMotarControl::multicoorStop()
 int CHeroMotarControl::eStop()
 {
 	m_nActionState = STATIC_STATE;
+	m_bLeftRightMove = false;
 	return smc_emg_stop(m_nConnectNo);	      //½ô¼±Í£Ö¹
 }
 
@@ -443,7 +485,7 @@ int CHeroMotarControl::threadProcLeftTransverse(UINT nValue)
 		return -1;
 	}
 	short nRet = -1;
-	doMoveLUp(6000, true);
+	doMoveLUp(INITIAL_HEIGHT, true);
 	Sleep(100);
 	UINT nCount = 0;
 	while (1)
@@ -451,6 +493,7 @@ int CHeroMotarControl::threadProcLeftTransverse(UINT nValue)
 		if (nCount >= EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -489,13 +532,15 @@ int CHeroMotarControl::threadProcLeftTransverse(UINT nValue)
 		nCount++;
 	}
 
-	doMoveLDown(3000, false);
+#if(BLOCK_LEN == 600)
+	doMoveLDown(INITIAL_HEIGHT, false);
 	Sleep(100);
 	while (1)
 	{
 		if (nCount >= VERTICAL_EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -514,8 +559,10 @@ int CHeroMotarControl::threadProcLeftTransverse(UINT nValue)
 		Sleep(50);
 		nCount++;
 	}
+#endif
 
-	doSingleMotion(600, -1);
+	smc_set_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, 0);
+	doSingleMotion(nValue, -1);
 	Sleep(100);
 	short nIn0 = 1;
 	while (1)
@@ -523,6 +570,7 @@ int CHeroMotarControl::threadProcLeftTransverse(UINT nValue)
 		if (nCount >= EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -536,12 +584,66 @@ int CHeroMotarControl::threadProcLeftTransverse(UINT nValue)
 		{
 			g_Logger.TraceInfo("CHeroMotarControl::threadProcRightVertical µ±Ç°×´Ì¬£º¾²Ö¹£¡");
 			nCount = 0;
+			m_bLeftRightMove = false;
 			break;
 		}
 		Sleep(50);
 		nCount++;
 	}
+	double dPos = 0.00;
+	smc_get_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, &dPos);
+	g_Logger.TraceInfo("CHeroMotarControl::threadProcLeftMove Pos = %f£¡", dPos);
+	dPos = abs(dPos);
+	double dExpectedPos = nValue * ENCODER_UNIT;
+	double dInterval = abs(dPos - dExpectedPos);
+	if (dInterval > 30.0)
+	{
+		if (dPos < dExpectedPos)
+		{
+			UINT nLen = (UINT)(dInterval / ENCODER_UNIT);
+			smc_set_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, 0);
+			doSingleMotion(nLen, -1);
+			Sleep(100);
+			while (1)
+			{
+				if (nCount >= EVENT_TIME_OUT)
+				{
+					eStop();
+					m_bEstop = false;
+					return -1;
+				}
+				if (m_bEstop)
+				{
+					eStop();
+					m_bEstop = false;
+					return -1;
+				}
+				nRet = smc_check_done(m_nConnectNo, LEFT_RIGHT_MOTION_AXIS);           //ÅÐ¶Ïµ±Ç°Öá×´Ì¬
+				if (nRet == 1)
+				{
+					g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
+					m_bLeftRightMove = false;
+					nCount = 0;
+					break;
+				}
+				Sleep(50);
+				nCount++;
+			}
 
+			smc_get_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, &dPos);
+			g_Logger.TraceInfo("CHeroMotarControl::threadProcLeftMove Pos = %f£¡", dPos);
+			dInterval = abs(dPos - dInterval);
+			if (dInterval > 30.0)
+			{
+				eStop();
+				m_bEstop = false;
+				return -1;
+			}
+		}
+	}
+
+
+#if(BLOCK_LEN == 600)
 	doMoveLUp(80000, false);
 	Sleep(100);
 	while (1)
@@ -549,6 +651,7 @@ int CHeroMotarControl::threadProcLeftTransverse(UINT nValue)
 		if (nCount >= VERTICAL_EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -566,6 +669,11 @@ int CHeroMotarControl::threadProcLeftTransverse(UINT nValue)
 		Sleep(50);
 		nCount++;
 	}
+#endif
+	if (!InitEndLeftRightData())
+	{
+		return -1;
+	}
 	return 0;
 }
 
@@ -575,11 +683,13 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 	Sleep(100);
 	short nRet = -1;
 	UINT nCount = 0;
+	g_Logger.TraceInfo("CHeroMotarControl::HorizontalTransverse BBBB000£¡");
 	while (1)
 	{
 		if (nCount >= VERTICAL_EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return false;
 		}
 		if (m_bEstop)
@@ -600,6 +710,7 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 	}
 
 	doPulpOut(0);
+	g_Logger.TraceInfo("CHeroMotarControl::HorizontalTransverse BBBB001£¡");
 	while (1)
 	{
 		if (m_bEstop)
@@ -618,8 +729,9 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 		nCount++;
 	}
 
-	Sleep(3000);
+	Sleep(1000);
 
+	g_Logger.TraceInfo("CHeroMotarControl::HorizontalTransverse BBBB002£¡");
 	doMoveLDown(80000, true);
 	Sleep(100);
 	while (1)
@@ -627,6 +739,7 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 		if (nCount >= VERTICAL_EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return false;
 		}
 		if (m_bEstop)
@@ -646,6 +759,8 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 		nCount++;
 	}
 
+	g_Logger.TraceInfo("CHeroMotarControl::HorizontalTransverse BBBB003£¡");
+	smc_set_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, 0);
 	doSingleMotion(nLen, 1);
 	Sleep(100);
 	short nIn0 = 1;
@@ -655,6 +770,7 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 		if (nCount >= EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return false;
 		}
 		if (m_bEstop)
@@ -684,6 +800,59 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 		Sleep(50);
 		nCount++;
 	}
+	m_bLeftRightMove = false;
+
+	double dPos = 0.00;
+	smc_get_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, &dPos);
+	g_Logger.TraceInfo("CHeroMotarControl::threadProcLeftMove Pos = %f£¡", dPos);
+	dPos = abs(dPos);
+	double dExpectedPos = nLen * ENCODER_UNIT;
+	double dInterval = abs(dPos - dExpectedPos);
+	if (dInterval > 30.0)
+	{
+		if (dPos < dExpectedPos)
+		{
+			UINT nLenNew = (UINT)(dInterval / ENCODER_UNIT);
+			smc_set_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, 0);
+			doSingleMotion(nLenNew, 1);
+			Sleep(100);
+			while (1)
+			{
+				if (nCount >= EVENT_TIME_OUT)
+				{
+					eStop();
+					m_bEstop = false;
+					return -1;
+				}
+				if (m_bEstop)
+				{
+					eStop();
+					m_bEstop = false;
+					return -1;
+				}
+				nRet = smc_check_done(m_nConnectNo, LEFT_RIGHT_MOTION_AXIS);           //ÅÐ¶Ïµ±Ç°Öá×´Ì¬
+				if (nRet == 1)
+				{
+					g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
+					m_bLeftRightMove = false;
+					nCount = 0;
+					break;
+				}
+				Sleep(50);
+				nCount++;
+			}
+
+			smc_get_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, &dPos);
+			g_Logger.TraceInfo("CHeroMotarControl::threadProcLeftMove Pos = %f£¡", dPos);
+			dInterval = abs(dPos - dInterval);
+			if (dInterval > 30.0)
+			{
+				eStop();
+				m_bEstop = false;
+				return -1;
+			}
+		}
+	}
 
 	if (bMissStep)
 	{
@@ -694,6 +863,7 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 			if (nCount >= EVENT_TIME_OUT)
 			{
 				eStop();
+				m_bEstop = false;
 				return false;
 			}
 			if (m_bEstop)
@@ -712,6 +882,9 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 			Sleep(50);
 			nCount++;
 		}
+
+		m_bLeftRightMove = false;
+
 		nIn0 = !smc_read_inbit(m_nConnectNo, 5);
 		if (nIn0)
 		{
@@ -722,6 +895,7 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 				if (nCount >= EVENT_TIME_OUT)
 				{
 					eStop();
+					m_bEstop = false;
 					return false;
 				}
 				if (m_bEstop)
@@ -742,6 +916,7 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 					if (!nIn0)
 					{
 						emgStop2();
+						m_bEstop = false;
 						return false;
 					}
 				}
@@ -751,6 +926,7 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 		}
 		else
 		{
+#if(BLOCK_LEN == 600)
 			doMoveLDown(80000, false);
 			Sleep(100);
 			while (1)
@@ -758,6 +934,7 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 				if (nCount >= VERTICAL_EVENT_TIME_OUT)
 				{
 					eStop();
+					m_bEstop = false;
 					return false;
 				}
 				if (m_bEstop)
@@ -784,6 +961,7 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 				if (nCount >= EVENT_TIME_OUT)
 				{
 					eStop();
+					m_bEstop = false;
 					return false;
 				}
 				if (m_bEstop)
@@ -804,12 +982,14 @@ bool CHeroMotarControl::HorizontalTransverse(UINT nLen)
 					if (!nIn0)
 					{
 						emgStop2();
+						m_bEstop = false;
 						return false;
 					}
 				}
 				Sleep(50);
 				nCount++;
 			}
+#endif
 		}
 	}
 	return true;
@@ -819,15 +999,18 @@ int CHeroMotarControl::threadProcRightTransverse(UINT nValue)
 {
 	if (!InitLeftRightData())
 	{
+		g_Logger.TraceInfo("CHeroMotarControl::threadProcRightTransverse BBBB001£¡");
 		return -1;
 	}
 
+	g_Logger.TraceInfo("CHeroMotarControl::threadProcRightTransverse BBBB000£¡");
 	UINT nCountLen = (nValue % ONCE_MOVE_LEN == 0) ? (nValue / ONCE_MOVE_LEN) : (nValue / ONCE_MOVE_LEN) + 1;
 	for (UINT i = 0; i < nCountLen; i++)
 	{
 		if (i == nCountLen - 1)
 		{
 			nValue = (nValue % ONCE_MOVE_LEN == 0) ? ONCE_MOVE_LEN : nValue % ONCE_MOVE_LEN;
+			g_Logger.TraceInfo("CHeroMotarControl::threadProcRightTransverse BBBB002 : %d£¡", nValue);
 			if (!HorizontalTransverse(nValue))
 			{
 				return -1;
@@ -835,13 +1018,20 @@ int CHeroMotarControl::threadProcRightTransverse(UINT nValue)
 		}
 		else
 		{
-			if (!HorizontalTransverse(ONCE_MOVE_LEN))
+			UINT nLen = (nValue >= ONCE_MOVE_LEN) ? ONCE_MOVE_LEN : nValue;
+			if (!HorizontalTransverse(nLen))
 			{
+				g_Logger.TraceInfo("CHeroMotarControl::threadProcRightTransverse BBBB003£¡");
 				return -1;
 			}
+			g_Logger.TraceInfo("CHeroMotarControl::threadProcRightTransverse BBBB004£¡");
 		}
 	}
-	g_Logger.TraceInfo("CHeroMotarControl::threadProcRightTransverse AAAAAA010£¡");
+	g_Logger.TraceInfo("CHeroMotarControl::threadProcRightTransverse BBBB005£¡");
+	if (!InitEndLeftRightData())
+	{
+		return -1;
+	}
 	return 0;
 }
 
@@ -852,7 +1042,7 @@ int CHeroMotarControl::threadProcLeftVertical(UINT nValue)
 		return -1;
 	}
 	short nRet = -1;
-	doMoveLUp(6000, true);
+	doMoveLUp(INITIAL_HEIGHT, true);
 	Sleep(100);
 	UINT nCount = 0;
 	while (1)
@@ -860,6 +1050,7 @@ int CHeroMotarControl::threadProcLeftVertical(UINT nValue)
 		if (nCount >= EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -879,7 +1070,6 @@ int CHeroMotarControl::threadProcLeftVertical(UINT nValue)
 		nCount++;
 	}
 
-	//doSingleMotion(600, -1);
 	S_Single_Motion sLeftMotion;
 	sLeftMotion.nLogic = 0;
 	sLeftMotion.nAxis = LEFT_RIGHT_MOTION_AXIS;
@@ -893,6 +1083,7 @@ int CHeroMotarControl::threadProcLeftVertical(UINT nValue)
 		if (nCount >= EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -905,6 +1096,7 @@ int CHeroMotarControl::threadProcLeftVertical(UINT nValue)
 		if (nRet == 1)
 		{
 			g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
+			m_bLeftRightMove = false;
 			nCount = 0;
 			break;
 		}
@@ -912,14 +1104,14 @@ int CHeroMotarControl::threadProcLeftVertical(UINT nValue)
 		nCount++;
 	}
 
-
-	doMoveLDown(80000);
+	doMoveLDown(80000, true);
 	Sleep(100);
 	while (1)
 	{
 		if (nCount >= VERTICAL_EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -957,14 +1149,15 @@ int CHeroMotarControl::threadProcLeftVertical(UINT nValue)
 		Sleep(50);
 		nCount ++;
 	}
-	Sleep(2000);
-	doMoveLUp(80000);
+	Sleep(1000);
+	doMoveLUp(80000, true);
 	Sleep(100);
 	while (1)
 	{
 		if (nCount >= VERTICAL_EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -984,13 +1177,69 @@ int CHeroMotarControl::threadProcLeftVertical(UINT nValue)
 		nCount++;
 	}
 	Sleep(200);
-	doSingleMotion(10, 1);
+	doSingleMotion(30, 1);
 	Sleep(100);
 	while (1)
 	{
 		if (nCount >= EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
+			return -1;
+		}
+		if (m_bEstop)
+		{
+			eStop();
+			m_bEstop = false;
+			return -1;
+		}
+		nRet = smc_check_done(m_nConnectNo, LEFT_RIGHT_MOTION_AXIS);           //ÅÐ¶Ïµ±Ç°Öá×´Ì¬
+		if (nRet == 1)
+		{
+			g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
+			nCount = 0;
+			break;
+		}
+		Sleep(50);
+		nCount++;
+	}
+	m_bLeftRightMove = false;
+
+	doMoveLDown(80000, true);
+	Sleep(100);
+	while (1)
+	{
+		if (nCount >= VERTICAL_EVENT_TIME_OUT)
+		{
+			eStop();
+			m_bEstop = false;
+			return -1;
+		}
+		if (m_bEstop)
+		{
+			eStop();
+			m_bEstop = false;
+			return -1;
+		}
+		nRet = smc_check_done(m_nConnectNo, FRONT_UP_DOWN_MOTION_AXIS1);           //ÅÐ¶Ïµ±Ç°Öá×´Ì¬
+		if (nRet == 1)
+		{
+			g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
+			nCount = 0;
+			break;
+		}
+		Sleep(50);
+		nCount++;
+	}
+
+	doSingleMotion(20, -1);
+	Sleep(100);
+	while (1)
+	{
+		if (nCount >= EVENT_TIME_OUT)
+		{
+			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -1010,29 +1259,11 @@ int CHeroMotarControl::threadProcLeftVertical(UINT nValue)
 		nCount++;
 	}
 
-	doMoveLDown(80000);
-	Sleep(100);
-	while (1)
+	m_bLeftRightMove = false;
+
+	if (!InitEndLeftRightData())
 	{
-		if (nCount >= VERTICAL_EVENT_TIME_OUT)
-		{
-			eStop();
-			return -1;
-		}
-		if (m_bEstop)
-		{
-			eStop();
-			m_bEstop = false;
-			return -1;
-		}
-		nRet = smc_check_done(m_nConnectNo, FRONT_UP_DOWN_MOTION_AXIS1);           //ÅÐ¶Ïµ±Ç°Öá×´Ì¬
-		if (nRet == 1)
-		{
-			g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
-			break;
-		}
-		Sleep(50);
-		nCount++;
+		return -1;
 	}
 	return 0;
 }
@@ -1159,10 +1390,9 @@ cleanup:
 	}
 }
 
-bool CHeroMotarControl::InitLeftRightData()
+bool CHeroMotarControl::InitEndLeftRightData()
 {
 	short nFrontLowerLimit = !smc_read_inbit(m_nConnectNo, 10);
-	short nBackUpperLimit = !smc_read_inbit(m_nConnectNo, 9);
 	short nRet = -1;
 	UINT nCount = 0;
 	if (!nFrontLowerLimit)
@@ -1174,6 +1404,146 @@ bool CHeroMotarControl::InitLeftRightData()
 			if (nCount >= VERTICAL_EVENT_TIME_OUT)
 			{
 				eStop();
+				g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA001£¡");
+				m_bEstop = false;
+				return false;
+			}
+			if (m_bEstop)
+			{
+				eStop();
+				m_bEstop = false;
+				g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA002£¡");
+				return false;
+			}
+			nRet = smc_check_done(m_nConnectNo, FRONT_UP_DOWN_MOTION_AXIS1);           //ÅÐ¶Ïµ±Ç°Öá×´Ì¬
+			if (nRet == 1)
+			{
+				g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
+				nCount = 0;
+				break;
+			}
+			Sleep(50);
+			nCount++;
+		}
+
+		//Sleep(1000);
+
+		g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA010£¡");
+		doMoveLUp(INITIAL_HEIGHT, true);
+		g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA011£¡");
+		Sleep(100);
+		while (1)
+		{
+			if (nCount >= EVENT_TIME_OUT)
+			{
+				eStop();
+				m_bEstop = false;
+				g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA003£¡");
+				return false;
+			}
+			if (m_bEstop)
+			{
+				eStop();
+				g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA004£¡");
+				m_bEstop = false;
+				return false;
+			}
+			nRet = smc_check_done(m_nConnectNo, BACK_UP_DOWN_MOTION_AXIS1);           //ÅÐ¶Ïµ±Ç°Öá×´Ì¬
+			if (nRet == 1)
+			{
+				g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
+				break;
+			}
+			Sleep(50);
+			nCount++;
+		}
+	}
+
+	else
+	{
+		g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA012£¡");
+		doMoveLUp(INITIAL_HEIGHT, true);
+		g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA013£¡");
+		Sleep(100);
+		while (1)
+		{
+			if (nCount >= EVENT_TIME_OUT)
+			{
+				eStop();
+				m_bEstop = false;
+				g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA003£¡");
+				return false;
+			}
+			if (m_bEstop)
+			{
+				eStop();
+				g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA004£¡");
+				m_bEstop = false;
+				return false;
+			}
+			nRet = smc_check_done(m_nConnectNo, BACK_UP_DOWN_MOTION_AXIS1);           //ÅÐ¶Ïµ±Ç°Öá×´Ì¬
+			if (nRet == 1)
+			{
+				g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
+				break;
+			}
+			Sleep(50);
+			nCount++;
+		}
+	}
+
+#if(BLOCK_LEN == 600)
+	short nBackUpperLimit = !smc_read_inbit(m_nConnectNo, 9);
+	if (!nBackUpperLimit)
+	{
+		doMoveLUp(80000, false);
+		Sleep(100);
+		//SetEvent(m_gEvent);
+		while (1)
+		{
+			if (nCount >= VERTICAL_EVENT_TIME_OUT)
+			{
+				eStop();
+				m_bEstop = false;
+				g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA003£¡");
+				return false;
+			}
+			if (m_bEstop)
+			{
+				eStop();
+				g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA004£¡");
+				m_bEstop = false;
+				return false;
+			}
+			nRet = smc_check_done(m_nConnectNo, BACK_UP_DOWN_MOTION_AXIS1);           //ÅÐ¶Ïµ±Ç°Öá×´Ì¬
+			if (nRet == 1)
+			{
+				g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
+				break;
+			}
+			Sleep(50);
+			nCount++;
+		}
+	}
+#endif
+	return true;
+}
+
+bool CHeroMotarControl::InitLeftRightData()
+{
+	short nFrontLowerLimit = !smc_read_inbit(m_nConnectNo, 10);
+	short nRet = -1;
+	UINT nCount = 0;
+	if (!nFrontLowerLimit)
+	{
+		doMoveLDown(80000, true);
+		Sleep(100);
+		while (1)
+		{
+			if (nCount >= VERTICAL_EVENT_TIME_OUT)
+			{
+				eStop();
+				m_bEstop = false;
 				g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA001£¡");
 				return false;
 			}
@@ -1195,6 +1565,9 @@ bool CHeroMotarControl::InitLeftRightData()
 			nCount ++;
 		}
 	}
+
+#if(BLOCK_LEN == 600)
+	short nBackUpperLimit = !smc_read_inbit(m_nConnectNo, 9);
 	if (!nBackUpperLimit)
 	{
 		doMoveLUp(80000, false);
@@ -1205,6 +1578,7 @@ bool CHeroMotarControl::InitLeftRightData()
 			if (nCount >= VERTICAL_EVENT_TIME_OUT)
 			{
 				eStop();
+				m_bEstop = false;
 				g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData AAAAAA003£¡");
 				return false;
 			}
@@ -1225,6 +1599,7 @@ bool CHeroMotarControl::InitLeftRightData()
 			nCount++;
 		}
 	}
+#endif
 	return true;
 }
 
@@ -1235,14 +1610,16 @@ int CHeroMotarControl::threadProcLeftMove(UINT nValue)
 		return -1;
 	}
 	short nRet = -1;
-	doMoveLUp(6000, true);
+	doMoveLUp(INITIAL_HEIGHT, true);
 	Sleep(100);
 	UINT nCount = 0;
+	double dPos = 0.00;
 	while (1)
 	{
 		if (nCount >= EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -1261,7 +1638,7 @@ int CHeroMotarControl::threadProcLeftMove(UINT nValue)
 		Sleep(50);
 		nCount++;
 	}
-
+	smc_set_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, 0);
 	doSingleMotion(nValue, -1);
 	Sleep(100);
 	while (1)
@@ -1269,6 +1646,7 @@ int CHeroMotarControl::threadProcLeftMove(UINT nValue)
 		if (nCount >= EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -1286,6 +1664,63 @@ int CHeroMotarControl::threadProcLeftMove(UINT nValue)
 		Sleep(50);
 		nCount++;
 	}
+	m_bLeftRightMove = false;
+
+	smc_get_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, &dPos);
+	g_Logger.TraceInfo("CHeroMotarControl::threadProcLeftMove Pos = %f£¡", dPos);
+	dPos = abs(dPos);
+	double dExpectedPos = nValue * ENCODER_UNIT;
+	double dInterval = abs(dPos - dExpectedPos);
+	if (dInterval > 30.0)
+	{
+		if (dPos < dExpectedPos)
+		{
+			UINT nLen = (UINT)(dInterval / ENCODER_UNIT);
+			smc_set_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, 0);
+			doSingleMotion(nLen, -1);
+			Sleep(100);
+			while (1)
+			{
+				if (nCount >= EVENT_TIME_OUT)
+				{
+					eStop();
+					m_bEstop = false;
+					return -1;
+				}
+				if (m_bEstop)
+				{
+					eStop();
+					m_bEstop = false;
+					return -1;
+				}
+				nRet = smc_check_done(m_nConnectNo, LEFT_RIGHT_MOTION_AXIS);           //ÅÐ¶Ïµ±Ç°Öá×´Ì¬
+				if (nRet == 1)
+				{
+					g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
+					m_bLeftRightMove = false;
+					nCount = 0;
+					break;
+				}
+				Sleep(50);
+				nCount++;
+			}
+
+			smc_get_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, &dPos);
+			g_Logger.TraceInfo("CHeroMotarControl::threadProcLeftMove Pos = %f£¡", dPos);
+			dInterval = abs(dPos - dInterval);
+			if (dInterval > 30.0)
+			{
+				eStop();
+				m_bEstop = false;
+				return -1;
+			}
+		}
+	}
+
+	if (!InitEndLeftRightData())
+	{
+		return -1;
+	}
 	return 0;
 }
 
@@ -1296,7 +1731,7 @@ int CHeroMotarControl::threadProcRightMove(UINT nValue)
 		return -1;
 	}
 	short nRet = -1;
-	doMoveLUp(6000, true);
+	doMoveLUp(INITIAL_HEIGHT, true);
 	Sleep(100);
 	UINT nCount = 0;
 	while (1)
@@ -1304,6 +1739,7 @@ int CHeroMotarControl::threadProcRightMove(UINT nValue)
 		if (nCount >= EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -1322,7 +1758,8 @@ int CHeroMotarControl::threadProcRightMove(UINT nValue)
 		Sleep(50);
 		nCount ++;
 	}
-
+	smc_set_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, 0);
+	double dPos = 0.00;
 	doSingleMotion(nValue, 1);
 	Sleep(100);
 	while (1)
@@ -1330,6 +1767,7 @@ int CHeroMotarControl::threadProcRightMove(UINT nValue)
 		if (nCount >= EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -1342,10 +1780,68 @@ int CHeroMotarControl::threadProcRightMove(UINT nValue)
 		if (nRet == 1)
 		{
 			g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
+			m_bLeftRightMove = false;
 			break;
 		}
 		Sleep(50);
 		nCount++;
+	}
+	smc_get_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, &dPos);
+	g_Logger.TraceInfo("CHeroMotarControl::threadProcLeftMove Pos = %f£¡", dPos);
+	
+
+	dPos = abs(dPos);
+	double dExpectedPos = nValue * ENCODER_UNIT;
+	double dInterval = abs(dPos - dExpectedPos);
+	if (dInterval > 30.0)
+	{
+		if (dPos < dExpectedPos)
+		{
+			UINT nLen = (UINT)(dInterval / ENCODER_UNIT);
+			smc_set_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, 0);
+			doSingleMotion(nLen, 1);
+			Sleep(100);
+			while (1)
+			{
+				if (nCount >= EVENT_TIME_OUT)
+				{
+					eStop();
+					m_bEstop = false;
+					return -1;
+				}
+				if (m_bEstop)
+				{
+					eStop();
+					m_bEstop = false;
+					return -1;
+				}
+				nRet = smc_check_done(m_nConnectNo, LEFT_RIGHT_MOTION_AXIS);           //ÅÐ¶Ïµ±Ç°Öá×´Ì¬
+				if (nRet == 1)
+				{
+					g_Logger.TraceInfo("CHeroMotarControl::threadProc µ±Ç°×´Ì¬£º¾²Ö¹£¡");
+					m_bLeftRightMove = false;
+					nCount = 0;
+					break;
+				}
+				Sleep(50);
+				nCount++;
+			}
+
+			smc_get_encoder_unit(m_nConnectNo, PULP_OUT_AXIS, &dPos);
+			g_Logger.TraceInfo("CHeroMotarControl::threadProcLeftMove Pos = %f£¡", dPos);
+			dInterval = abs(dPos - dInterval);
+			if (dInterval > 30.0)
+			{
+				eStop();
+				m_bEstop = false;
+				return -1;
+			}
+		}
+	}
+
+	if (!InitEndLeftRightData())
+	{
+		return -1;
 	}
 	return 0;
 }
@@ -1378,6 +1874,7 @@ int CHeroMotarControl::threadProcPulpOut()
 
 int CHeroMotarControl::threadProcRightVertical(UINT nValue)
 {
+#if(BLOCK_LEN == 600)
 	if (!InitLeftRightData())
 	{
 		return -1;
@@ -1391,6 +1888,7 @@ int CHeroMotarControl::threadProcRightVertical(UINT nValue)
 		if (nCount >= EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -1417,6 +1915,7 @@ int CHeroMotarControl::threadProcRightVertical(UINT nValue)
 		if (nCount >= EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -1462,6 +1961,7 @@ int CHeroMotarControl::threadProcRightVertical(UINT nValue)
 		if (nCount >= VERTICAL_EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -1502,6 +2002,7 @@ int CHeroMotarControl::threadProcRightVertical(UINT nValue)
 		if (nCount >= VERTICAL_EVENT_TIME_OUT)
 		{
 			eStop();
+			m_bEstop = false;
 			return -1;
 		}
 		if (m_bEstop)
@@ -1519,5 +2020,12 @@ int CHeroMotarControl::threadProcRightVertical(UINT nValue)
 		Sleep(50);
 		nCount++;
 	}
+
+	if (!InitEndLeftRightData())
+	{
+		return -1;
+	}
+
+#endif
 	return 0;
 }
