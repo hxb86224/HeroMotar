@@ -132,6 +132,22 @@ void CHeroMotarDlg::OnSysCommand(UINT nID, LPARAM lParam)
 	}
 }
 
+BOOL CHeroMotarDlg::PreTranslateMessage(MSG* pMsg)
+{
+	//屏蔽ESC关闭窗体/
+	if (pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_ESCAPE)
+	{
+		return TRUE;
+	}
+	//屏蔽回车关闭窗体,但会导致回车在窗体上失效.
+	else if (pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_RETURN && pMsg->wParam)
+	{
+		return TRUE;
+	}
+	else
+		return CDialog::PreTranslateMessage(pMsg);
+}
+
 void CHeroMotarDlg::OnButtonDo()
 {
 	g_HeroMotarControlManager.doSingleMotion();

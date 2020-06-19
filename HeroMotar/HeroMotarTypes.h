@@ -92,6 +92,7 @@ typedef struct S_In_Out
     short   nIn4;
     short   nIn5;
     short   nIn6;
+    short   nIn7;
     int     nOrg;           //1 :X轴原点信号:ON 0:X轴原点信号：OFF
 public:
     S_In_Out()

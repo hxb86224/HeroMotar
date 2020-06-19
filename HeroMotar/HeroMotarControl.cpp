@@ -51,6 +51,7 @@ int CHeroMotarControl::Init(bool enable)
         return -1;
     }
 	m_bInitSuccess = true;
+
 	smc_set_counter_inmode(m_nConnectNo, PULP_OUT_AXIS, 0);
     g_Logger.TraceInfo("CHeroMotarControl::Init 连接成功！");
 	m_pHeroMotarTcp = new CHeroMotarTcp(12345);
@@ -74,7 +75,7 @@ int CHeroMotarControl::OnDealMsgInfo(char* pData, unsigned int nLen, unsigned in
 	S_Msg_Info* pMsg_Info = new S_Msg_Info(nSocket);
 	memcpy(pMsg_Info->cBuf, pData, nLen);
 	pMsg_Info->nBytes = nLen;
-
+	g_Logger.TraceInfo("CHeroMotarControl::OnDealMsgInfo msg:%s", pData);
 	auto s_result = Split(pMsg_Info->cBuf, "[\\s,#]+");
 	int nSize = s_result.size();
 	if (nSize == 2)
@@ -135,51 +136,13 @@ int CHeroMotarControl::getState()
 	if (!m_bInitSuccess) {
 		return nRet;
 	}
-	//double position = 0.0;
-	//nRet = smc_get_position_unit(m_nConnectNo, m_sSingleMotion.nAxis, &position);          //获取当前轴位置
-	//printf("postion:%f", position);
-	//cout << position;
-	//if (nRet != 0)
-	//{
-	//	//g_Logger.TraceError("CHeroMotarControl::getState 可能已经断开连接！");
-	//	return -1;
-	//}
-	//g_Logger.TraceInfo("CHeroMotarControl::getState 当前位置：%0.3f！", position);
-
-	//double NowSpe = 0.0;
-	//nRet = smc_read_current_speed_unit(m_nConnectNo, m_sSingleMotion.nAxis, &NowSpe);          //获取当前轴速度
-	//g_Logger.TraceInfo("CHeroMotarControl::getState 当前速度：%0.3f！", NowSpe);
-
-	//nRet = smc_check_done(m_nConnectNo, m_sSingleMotion.nAxis);           //判断当前轴状态
-	//if (nRet == 1)
-	//{
-	//	g_Logger.TraceInfo("CHeroMotarControl::getState 当前状态：静止！");
-	//}
-	//else
-	//{
-	//	g_Logger.TraceInfo("CHeroMotarControl::getState 当前状态：运动！");
-	//}
-	//WORD nMode = 0;
-	//nRet = smc_get_axis_run_mode(m_nConnectNo, m_sSingleMotion.nAxis, &nMode);           //判断当前模式状态
-	//if (nMode == 0)
-	//{
-	//	g_Logger.TraceInfo("CHeroMotarControl::getState 当前模式：空闲！");
-	//}
-	//else if (nMode == 1)
-	//{
-	//	g_Logger.TraceInfo("CHeroMotarControl::getState 当前模式：定长！");
-	//}
-	//else if (nMode == 2)
-	//{
-	//	g_Logger.TraceInfo("CHeroMotarControl::getState 当前模式：恒速！");
-	//}
-
-	//m_sIn_Out.nIn0 = !smc_read_inbit(m_nConnectNo, 5);
 	m_sIn_Out.nIn1 = !smc_read_inbit(m_nConnectNo, 6);
 	m_sIn_Out.nIn2 = !smc_read_inbit(m_nConnectNo, 7);
-
 	m_sIn_Out.nIn5 = !smc_read_inbit(m_nConnectNo, 10);
 	m_sIn_Out.nIn6 = !smc_read_inbit(m_nConnectNo, 11);
+	//m_sIn_Out.nIn7 = !smc_read_inbit(m_nConnectNo, 0);
+	//g_Logger.TraceInfo("CHeroMotarControl::getState  nIn7 : %d！", m_sIn_Out.nIn7);
+
 	if (m_sIn_Out.nIn6 && (m_nActionState == LEFT_UP_STATE))
 	{
 		multicoorStop();
@@ -351,21 +314,17 @@ int CHeroMotarControl::emgStop2()
 
 int CHeroMotarControl::doMoveL2()
 {
+	//return doMoveLDown(80000, true); //下降到下限位
+	//return doMoveLUp(80000, true);  //上升到上限位
+	//return doPulpOut(1);		//正转
+	return doPulpOut(0);      //反转
 	//static int nCount = 1;
-	//if (nCount % 2)
-	//{
-	//	doMoveLUp(6000, true);
-	//	nCount++;
-	//	return 0;
-	//}
+	//if(nCount % 2)
+	//	smc_write_sevon_pin(m_nConnectNo, LEFT_RIGHT_MOTION_AXIS, 1);
 	//else
-	//{
-	//	doMoveLUp(80000, true);
-	//	nCount++;
-	//	return 0;
-	//}
-	return doMoveLDown(80000, true);
-	//return doPulpOut(0);
+	//	smc_write_sevon_pin(m_nConnectNo, LEFT_RIGHT_MOTION_AXIS, 0);
+	//nCount++;
+	return 0;
 }
 
 int CHeroMotarControl::doMoveLUp(double dDis, bool bFront)
@@ -1287,12 +1246,26 @@ void CHeroMotarControl::threadProcMotar(UINT nParam)
 				nRet = 2;
 				goto cleanup;
 			}
-			string sCommand1 = s_Value.substr(0, 5);
-			string sCommand2 = s_Value.substr(5, 5);
-			string sCommand3 = s_Value.substr(10, 5);
-			string sCommand4 = s_Value.substr(15, 5);
-			string sCommand5 = s_Value.substr(20, 5);
-			string sCommand6 = s_Value.substr(25, 5);
+			m_sIn_Out.nIn7 = !smc_read_inbit(m_nConnectNo, 0);
+			if (!m_sIn_Out.nIn7)
+			{
+				nRet = 3;
+				goto cleanup;
+			}
+			int nLen = s_Value.length();
+			string sCommand1, sCommand2, sCommand3, sCommand4, sCommand5, sCommand6;
+			if(nLen >= 5)
+				sCommand1 = s_Value.substr(0, 5);
+			if (nLen >= 10)
+				sCommand2 = s_Value.substr(5, 5);
+			if (nLen >= 15)
+				sCommand3 = s_Value.substr(10, 5);
+			if (nLen >= 20)
+				sCommand4 = s_Value.substr(15, 5);
+			if (nLen >= 25)
+				sCommand5 = s_Value.substr(20, 5);
+			if (nLen >= 30)
+				sCommand6 = s_Value.substr(25, 5);
 			if ((sCommand1 != "00000") && (sCommand1.length() == 5))
 			{
 				nRet = doMotar(atoi(sCommand1.substr(0, 1).c_str()), atoi(sCommand1.substr(1, 4).c_str()));
@@ -1375,10 +1348,15 @@ cleanup:
 			{
 				sMsg += ",3,控制器异常#";
 			}
+			else if (nRet == 3)
+			{
+				sMsg += ",4,请打开使能开关#";
+			}
 			else
 			{
 				sMsg += ",0,SUCCESS#";
 			}
+			g_Logger.TraceInfo("CHeroMotarControl::threadProcMotar msg:%s", sMsg.c_str());
 			m_pHeroMotarTcp->LoopSend((char*)sMsg.c_str(), sMsg.length(), pInfo->hSocket);
 		}
 		if (pInfo != NULL)
@@ -1531,6 +1509,12 @@ bool CHeroMotarControl::InitEndLeftRightData()
 
 bool CHeroMotarControl::InitLeftRightData()
 {
+	m_sIn_Out.nIn7 = !smc_read_inbit(m_nConnectNo, 0);
+	if (!m_sIn_Out.nIn7)
+	{
+		g_Logger.TraceInfo("CHeroMotarControl::InitLeftRightData 请打开使能开关！");
+		return false;
+	}
 	short nFrontLowerLimit = !smc_read_inbit(m_nConnectNo, 10);
 	short nRet = -1;
 	UINT nCount = 0;

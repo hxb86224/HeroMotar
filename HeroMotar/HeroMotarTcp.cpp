@@ -360,6 +360,7 @@ int CHeroMotarTcp::LoopSend(char *pBuf, uint nSize, uint nSocket)
         printf("CRobotTcpProtocol::LoopSend tcp is disconnected AAAAAAAAAA\n");
         return -1;
     }
+    g_Logger.TraceInfo("CHeroMotarTcp::LoopSend msg:%s", pBuf);
     int nRemian = nSize;
     int nSendlen = 0;
     int nRet = 0;
