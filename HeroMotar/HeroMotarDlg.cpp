@@ -113,7 +113,7 @@ BOOL CHeroMotarDlg::OnInitDialog()
 	// TODO: 在此添加额外的初始化代码
 	if (g_HeroMotarControlManager.Init(false) == 0)
 	{
-		SetTimer(IDC_TIMER, 50, NULL);
+		SetTimer(IDC_TIMER, 10, NULL);
 	}
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE

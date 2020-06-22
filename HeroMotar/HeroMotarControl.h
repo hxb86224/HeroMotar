@@ -48,6 +48,7 @@ public:
     bool InitEndLeftRightData();
     int doPulpOut(WORD nLogic);
     bool HorizontalTransverse(UINT nLen);
+    int doEmptyMotion(UINT nLen, int nLogic);
 
 
 private:
