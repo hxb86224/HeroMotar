@@ -36,7 +36,7 @@ public:
     int threadProcRightVertical(UINT nValue);
     int threadProcRightTransverse(UINT nValue);
     int threadProcLeftTransverse(UINT nValue);
-    int threadProcPulpOut();
+    int threadProcPulpOut(UINT nValue);
     void threadProcMotar(UINT nParam);
     int emgStop2();
     int doSingleMotion(UINT nLen, int nLogic);

@@ -18,6 +18,7 @@ using namespace LOGGER;
 #define ONCE_MOVE_LEN 600
 #define BLOCK_LEN   240
 #define INITIAL_HEIGHT 8000
+#define INITIAL_RIGHT_HEIGHT 800
 #define ENCODER_UNIT (3.20)
 #define IGNORE_LEN   100.0
 

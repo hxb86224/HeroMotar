@@ -367,6 +367,7 @@ int CHeroMotarTcp::LoopSend(char *pBuf, uint nSize, uint nSocket)
     while(nRemian > 0)
     {
         printf("CRobotTcpProtocol::LoopSend remian = %d m_nSock = %d\n", nRemian, m_nSock);
+        g_Logger.TraceInfo("CRobotTcpProtocol::LoopSend remian = %d m_nSock = %d\n", nRemian, m_nSock);
         nRet = send(nSocket, pBuf + nSendlen, nRemian, 0);
         if(nRet <= 0)
         {
@@ -381,6 +382,7 @@ int CHeroMotarTcp::LoopSend(char *pBuf, uint nSize, uint nSocket)
         nRemian -= nRet;
         if(m_nTry > 3)
         {
+            g_Logger.TraceInfo("CRobotTcpProtocol::LoopSend connect break\n");
             printf("CRobotTcpProtocol::LoopSend connect break\n");
             break;
         }
