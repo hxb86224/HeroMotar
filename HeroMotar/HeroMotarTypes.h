@@ -20,7 +20,7 @@ using namespace LOGGER;
 #define INITIAL_HEIGHT 8000
 #define INITIAL_RIGHT_HEIGHT 800
 #define ENCODER_UNIT (3.20)
-#define IGNORE_LEN   100.0
+#define IGNORE_LEN   1000.0
 
 using namespace std;
 typedef unsigned char			uchar;

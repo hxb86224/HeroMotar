@@ -61,6 +61,7 @@ private:
     //mutex g_Mutex;
     bool m_bInitSuccess;
     bool m_bPulpOut;
+    bool m_bLeftMove;
     bool m_bEstop;
     bool m_bLeftRightMove;
     CRITICAL_SECTION m_criticalSection;
