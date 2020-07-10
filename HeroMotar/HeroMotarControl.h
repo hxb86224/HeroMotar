@@ -49,7 +49,7 @@ public:
     int doPulpOut(WORD nLogic);
     bool HorizontalTransverse(UINT nLen);
     int doEmptyMotion(UINT nLen, int nLogic);
-
+    int toTargetHeight(UINT nValue);
 
 private:
     WORD m_nConnectNo;

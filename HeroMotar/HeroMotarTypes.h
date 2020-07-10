@@ -17,10 +17,14 @@ using namespace LOGGER;
 #define VERTICAL_EVENT_TIME_OUT 600
 #define ONCE_MOVE_LEN 600
 #define BLOCK_LEN   240
-#define INITIAL_HEIGHT 8000
 #define INITIAL_RIGHT_HEIGHT 800
 #define ENCODER_UNIT (3.20)
 #define IGNORE_LEN   1000.0
+#define WHOLE_LEN   64600.0
+#define MAX_WHOLE_LEN   70000.0
+#define MOVE_WHOLE_LEN   63000.0
+#define INITIAL_HEIGHT 2000
+#define HORIZONTAL_INITIAL_HEIGHT 14000
 
 using namespace std;
 typedef unsigned char			uchar;
@@ -146,7 +150,7 @@ public:
     {
         nLogic = 1;
         dSpeedstart = 2000.0;
-        dSpeedrun = 12000.0;
+        dSpeedrun = 1000.0;
         dSpeedstop = 200.0;
         dTAcc = 0.1;
         dTDec = 0.1;
